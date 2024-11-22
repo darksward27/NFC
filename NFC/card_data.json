@@ -1,0 +1,24 @@
+{
+  "cardholders": [
+    {
+      "name": "joel",
+      "department": "Computer Science",
+      "type": "Student",
+      "id": "0xe25c1a60",
+      "email": "",
+      "validUntil": "2024-11-22",
+      "active": true,
+      "created": "2024-11-22T11:10:13.687Z"
+    },
+    {
+      "name": "sagar",
+      "department": "Computer Science",
+      "type": "Student",
+      "id": "0xf37194fb",
+      "email": "",
+      "validUntil": "2024-11-30",
+      "active": true,
+      "created": "2024-11-22T11:26:48.296Z"
+    }
+  ]
+}
