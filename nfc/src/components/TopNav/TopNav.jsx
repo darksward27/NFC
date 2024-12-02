@@ -1,6 +1,6 @@
 import React from 'react';
 
-function TopNav({ setShowSidebar }) {
+function TopNav({ setShowSidebar, onLogout }) {
     return (
         <nav className="bg-white shadow-sm p-4">
             <div className="flex justify-between items-center">
@@ -17,6 +17,14 @@ function TopNav({ setShowSidebar }) {
                         />
                         <i className="bi bi-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
                     </div>
+
+                    <button
+                        onClick={onLogout}
+                        className="flex items-center space-x-2 px-4 py-2 rounded-lg text-red-600 hover:bg-red-50 transition-colors duration-200"
+                    >
+                        <i className="bi bi-box-arrow-right"></i>
+                        <span>Logout</span>
+                    </button>
                 </div>
             </div>
         </nav>
