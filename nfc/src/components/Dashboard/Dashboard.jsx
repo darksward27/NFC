@@ -11,7 +11,7 @@ import { OrganizationModal, DepartmentModal, CardModal } from '../Modals/Modals'
 import { organizationsApi, departmentsApi, cardsApi, accessLogsApi } from '../../services/api';
 import { wsClient } from '../../utils/websocket';
 
-function Dashboard() {
+function Dashboard({ organizationId }) {
     // State Management
     const [loading, setLoading] = useState(false);
     const [showSidebar, setShowSidebar] = useState(true);
@@ -304,6 +304,29 @@ function Dashboard() {
     function formatDate(dateString) {
         return new Date(dateString).toLocaleString();
     }
+
+    // Update the useEffect to fetch data for the specific organization
+    useEffect(() => {
+        async function fetchData() {
+            try {
+                const [deptData, statsData, logsData] = await Promise.all([
+                    departmentsApi.getAll(organizationId),
+                    accessLogsApi.getStats(organizationId),
+                    accessLogsApi.getAll({ organizationId })
+                ]);
+
+                setDepartments(deptData);
+                setStats(statsData);
+                setAccessLogs(logsData);
+            } catch (error) {
+                console.error('Error fetching dashboard data:', error);
+            }
+        }
+
+        if (organizationId) {
+            fetchData();
+        }
+    }, [organizationId]);
 
     return (
         <div className="min-h-screen bg-gray-50">
