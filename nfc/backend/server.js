@@ -239,6 +239,236 @@ CardSchema.index({ 'studentInfo.attendance.lastTapIn': -1 });
 
 const Card = mongoose.model('Card', CardSchema);
 
+const FacultySchema = new mongoose.Schema({
+    id: {
+        type: String,
+        required: true,
+        unique: true
+    },
+    personalInfo: {
+        firstName: {
+            type: String,
+            required: true
+        },
+        lastName: {
+            type: String,
+            required: true
+        },
+        email: {
+            type: String,
+            required: true,
+            unique: true
+        },
+        phone: String,
+        dateOfBirth: Date,
+        gender: {
+            type: String,
+            enum: ['male', 'female', 'other']
+        },
+        bloodGroup: String,
+        address: {
+            street: String,
+            city: String,
+            state: String,
+            pincode: String,
+            country: {
+                type: String,
+                default: 'India'
+            }
+        }
+    },
+    employmentDetails: {
+        employeeId: {
+            type: String,
+            required: true,
+            unique: true
+        },
+        designation: {
+            type: String,
+            required: true
+        },
+        department: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'Department',
+            required: true
+        },
+        organizationId: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'Organization',
+            required: true
+        },
+        joiningDate: {
+            type: Date,
+            required: true
+        },
+        status: {
+            type: String,
+            enum: ['active', 'on-leave', 'inactive', 'terminated'],
+            default: 'active'
+        },
+        employmentType: {
+            type: String,
+            enum: ['full-time', 'part-time', 'contract', 'visiting'],
+            default: 'full-time'
+        },
+        salary: {
+            basic: Number,
+            allowances: Number,
+            deductions: Number
+        }
+    },
+    academicInfo: {
+        qualification: [{
+            degree: String,
+            field: String,
+            institution: String,
+            year: Number,
+            score: String
+        }],
+        specialization: [String],
+        experience: {
+            teaching: Number,
+            industry: Number,
+            research: Number
+        },
+        subjects: [{
+            name: String,
+            code: String,
+            semester: Number,
+            department: {
+                type: mongoose.Schema.Types.ObjectId,
+                ref: 'Department'
+            }
+        }]
+    },
+    research: {
+        publications: [{
+            title: String,
+            type: {
+                type: String,
+                enum: ['journal', 'conference', 'book', 'patent', 'other']
+            },
+            date: Date,
+            publisher: String,
+            authors: [String],
+            doi: String,
+            url: String,
+            citations: Number
+        }],
+        projects: [{
+            title: String,
+            description: String,
+            status: {
+                type: String,
+                enum: ['ongoing', 'completed', 'planned']
+            },
+            role: String,
+            fundingAgency: String,
+            fundingAmount: Number,
+            startDate: Date,
+            endDate: Date,
+            team: [String]
+        }],
+        achievements: [{
+            title: String,
+            description: String,
+            date: Date,
+            category: {
+                type: String,
+                enum: ['award', 'recognition', 'certification', 'grant']
+            },
+            issuingAuthority: String
+        }]
+    },
+    attendance: {
+        currentStatus: {
+            type: String,
+            enum: ['present', 'absent', 'on-leave'],
+            default: 'absent'
+        },
+        lastTapIn: Date,
+        lastTapOut: Date,
+        statistics: {
+            totalPresent: { type: Number, default: 0 },
+            totalAbsent: { type: Number, default: 0 },
+            totalLeaves: { type: Number, default: 0 }
+        },
+        leaves: [{
+            type: {
+                type: String,
+                enum: ['casual', 'sick', 'earned', 'duty', 'other']
+            },
+            startDate: Date,
+            endDate: Date,
+            reason: String,
+            status: {
+                type: String,
+                enum: ['pending', 'approved', 'rejected'],
+                default: 'pending'
+            },
+            approvedBy: {
+                type: mongoose.Schema.Types.ObjectId,
+                ref: 'User'
+            },
+            documents: [String] // URLs to uploaded documents
+        }]
+    },
+    nfcCard: {
+        cardNumber: {
+            type: String,
+            unique: true,
+            sparse: true
+        },
+        issueDate: Date,
+        expiryDate: Date,
+        status: {
+            type: String,
+            enum: ['active', 'inactive', 'lost', 'expired'],
+            default: 'active'
+        },
+        accessPoints: [{
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'AccessPoint'
+        }]
+    }
+}, {
+    timestamps: true
+});
+
+// Indexes for better query performance
+FacultySchema.index({ 'personalInfo.email': 1 });
+FacultySchema.index({ 'employmentDetails.employeeId': 1 });
+FacultySchema.index({ 'employmentDetails.department': 1 });
+FacultySchema.index({ 'nfcCard.cardNumber': 1 });
+FacultySchema.index({ 'employmentDetails.status': 1 });
+
+// Auto-generate faculty ID
+FacultySchema.pre('save', async function(next) {
+    if (!this.id) {
+        const department = await mongoose.model('Department').findById(this.employmentDetails.department);
+        const deptCode = department ? department.code : 'FAC';
+        const count = await mongoose.model('Faculty').countDocuments({
+            'employmentDetails.department': this.employmentDetails.department
+        });
+        this.id = `${deptCode}-${String(count + 1).padStart(3, '0')}`;
+    }
+    next();
+});
+
+// Virtual for full name
+FacultySchema.virtual('fullName').get(function() {
+    return `${this.personalInfo.firstName} ${this.personalInfo.lastName}`;
+});
+
+// Method to calculate total salary
+FacultySchema.methods.calculateTotalSalary = function() {
+    const { basic, allowances, deductions } = this.employmentDetails.salary;
+    return (basic + allowances - deductions);
+};
+
+const Faculty = mongoose.model('Faculty', FacultySchema);
+
+
 const AccessLogSchema = new mongoose.Schema({
     cardId: { type: String, required: true },
     fingerprintId: { type: Number, required: true },
@@ -614,6 +844,40 @@ const tcpServer = createNetServer((socket) => {
 });
 
 // API Routes
+
+// Example API endpoints for Faculty
+app.get('/api/faculty', async (req, res) => {
+    try {
+        const { departmentId, status, search } = req.query;
+        let query = {};
+
+        if (departmentId) {
+            query['employmentDetails.department'] = departmentId;
+        }
+        if (status) {
+            query['employmentDetails.status'] = status;
+        }
+        if (search) {
+            query.$or = [
+                { 'personalInfo.firstName': { $regex: search, $options: 'i' } },
+                { 'personalInfo.lastName': { $regex: search, $options: 'i' } },
+                { 'personalInfo.email': { $regex: search, $options: 'i' } },
+                { 'employmentDetails.employeeId': { $regex: search, $options: 'i' } }
+            ];
+        }
+
+        const faculty = await Faculty.find(query)
+            .populate('employmentDetails.department')
+            .sort('personalInfo.firstName');
+        res.json(faculty);
+    } catch (error) {
+        console.error('Error fetching faculty:', error);
+        res.status(500).json({ message: 'Failed to fetch faculty' });
+    }
+});
+
+// ... add other faculty-related endpoints ...
+
 // Dashboard Stats Endpoint
 app.get('/api/dashboard/stats', async (req, res) => {
     try {
