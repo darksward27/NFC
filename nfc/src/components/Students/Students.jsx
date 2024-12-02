@@ -1,4 +1,18 @@
 import React, { useState, useEffect } from 'react';
+import StudentAnalytics from './StudentAnalytics';
+
+const getAttendanceStatusColor = (status) => {
+    switch (status?.toLowerCase()) {
+        case 'present':
+            return 'bg-green-100 text-green-800';
+        case 'absent':
+            return 'bg-red-100 text-red-800';
+        case 'late':
+            return 'bg-yellow-100 text-yellow-800';
+        default:
+            return 'bg-gray-100 text-gray-800';
+    }
+};
 
 function Students({ organizationId }) {
     const [departments, setDepartments] = useState([]);
@@ -73,6 +87,12 @@ function Students({ organizationId }) {
         fetchDepartments();
     }, [organizationId]);
 
+    useEffect(() => {
+        if (selectedDept) {
+            fetchStudents();
+        }
+    }, [selectedDept]);
+
     const fetchDepartments = async () => {
         setDepartmentsLoading(true);
         try {
@@ -82,10 +102,10 @@ function Students({ organizationId }) {
             }
             const data = await response.json();
             setDepartments(data);
+            setDepartmentsLoading(false);
         } catch (error) {
             console.error('Error fetching departments:', error);
             setError('Failed to load departments');
-        } finally {
             setDepartmentsLoading(false);
         }
     };
@@ -185,256 +205,170 @@ function Students({ organizationId }) {
 
     return (
         <div className="bg-white rounded-lg shadow-sm">
-            <div className="p-6 border-b flex justify-between items-center">
-                <div>
-                    <h2 className="text-lg font-semibold">Students</h2>
-                    <p className="text-sm text-gray-500">Manage student records</p>
+            <div className="p-6 border-b">
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center space-y-4 md:space-y-0">
+                    <div>
+                        <h2 className="text-lg font-semibold">Students</h2>
+                        <p className="text-sm text-gray-500">Manage student records</p>
+                    </div>
+                    
+                    <div className="flex items-center space-x-4">
+                        <div className="min-w-[200px]">
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                                Select Department
+                            </label>
+                            <select
+                                className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                                value={selectedDept?._id || ''}
+                                onChange={(e) => {
+                                    const dept = departments.find(d => d._id === e.target.value);
+                                    setSelectedDept(dept);
+                                }}
+                                disabled={departmentsLoading}
+                            >
+                                <option value="">Select Department</option>
+                                {departments.map((dept) => (
+                                    <option key={dept._id} value={dept._id}>
+                                        {dept.name}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+
+                        {selectedDept && (
+                            <button
+                                onClick={() => {
+                                    setEditingStudent(null);
+                                    setStudentFormData({
+                                        holderName: '',
+                                        email: '',
+                                        phone: '',
+                                        type: 'student',
+                                        departmentId: selectedDept._id,
+                                        validFrom: new Date().toISOString().split('T')[0],
+                                        validUntil: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+                                        active: true,
+                                        studentInfo: {
+                                            rollNumber: '',
+                                            semester: 1,
+                                            branch: selectedDept.name,
+                                            section: '',
+                                            batch: new Date().getFullYear().toString(),
+                                            admissionYear: new Date().getFullYear(),
+                                            guardianName: '',
+                                            guardianPhone: '',
+                                            bloodGroup: '',
+                                            address: {
+                                                street: '',
+                                                city: '',
+                                                state: '',
+                                                pincode: '',
+                                                country: 'India'
+                                            }
+                                        }
+                                    });
+                                    setShowStudentModal(true);
+                                }}
+                                className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 whitespace-nowrap"
+                            >
+                                Add Student
+                            </button>
+                        )}
+                    </div>
                 </div>
+
                 {selectedDept && (
-                    <button
-                        onClick={() => {
-                            setEditingStudent(null);
-                            setStudentFormData({
-                                holderName: '',
-                                email: '',
-                                phone: '',
-                                type: 'student',
-                                validFrom: new Date().toISOString().split('T')[0],
-                                validUntil: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-                                active: true,
-                                studentInfo: {
-                                    rollNumber: '',
-                                    semester: 1,
-                                    branch: '',
-                                    section: '',
-                                    batch: new Date().getFullYear().toString(),
-                                    admissionYear: new Date().getFullYear(),
-                                    guardianName: '',
-                                    guardianPhone: '',
-                                    bloodGroup: '',
-                                    address: {
-                                        street: '',
-                                        city: '',
-                                        state: '',
-                                        pincode: '',
-                                        country: 'India'
-                                    },
-                                    academicDetails: {
-                                        cgpa: 0,
-                                        attendance: 0,
-                                        subjects: []
-                                    },
-                                    nfcCard: {
-                                        cardNumber: '',
-                                        issueDate: new Date().toISOString().split('T')[0],
-                                        lastReplaced: null,
-                                        status: 'active'
-                                    },
-                                    attendance: {
-                                        lastTapIn: null,
-                                        lastTapOut: null,
-                                        totalPresent: 0,
-                                        totalAbsent: 0,
-                                        totalLate: 0,
-                                        status: 'absent',
-                                        history: []
-                                    },
-                                    library: {
-                                        membershipId: '',
-                                        booksIssued: [],
-                                        finesPending: 0
-                                    },
-                                    fees: {
-                                        totalAmount: 0,
-                                        paidAmount: 0,
-                                        pendingAmount: 0,
-                                        lastPaymentDate: null,
-                                        payments: []
-                                    }
-                                }
-                            });
-                            setShowStudentModal(true);
-                        }}
-                        className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600"
-                    >
-                        Add Student
-                    </button>
+                    <div className="mt-4 bg-gray-50 p-4 rounded-lg">
+                        <div className="flex justify-between items-start">
+                            <div>
+                                <h3 className="font-medium text-gray-900">{selectedDept.name}</h3>
+                                <p className="text-sm text-gray-500">{selectedDept.description}</p>
+                            </div>
+                            <span className={`px-2 py-1 text-xs rounded-full ${
+                                selectedDept.active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                            }`}>
+                                {selectedDept.active ? 'Active' : 'Inactive'}
+                            </span>
+                        </div>
+                    </div>
                 )}
             </div>
 
             <div className="p-6">
-                <div className="mb-4">
-                    <label className="block text-sm font-medium text-gray-700">Select Department</label>
-                    {departmentsLoading ? (
-                        <div className="mt-1 flex items-center">
-                            <div className="animate-spin rounded-full h-5 w-5 border-2 border-blue-500 border-t-transparent"></div>
-                            <span className="ml-2 text-sm text-gray-500">Loading departments...</span>
-                        </div>
-                    ) : (
-                        <select
-                            value={selectedDept?._id || ''}
-                            onChange={(e) => {
-                                const dept = departments.find(d => d._id === e.target.value);
-                                setSelectedDept(dept);
-                            }}
-                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                        >
-                            <option value="">Select a department</option>
-                            {departments.length > 0 ? (
-                                departments.map(dept => (
-                                    <option key={dept._id} value={dept._id}>{dept.name}</option>
-                                ))
-                            ) : (
-                                <option value="" disabled>No departments available</option>
-                            )}
-                        </select>
-                    )}
-                </div>
-
-                {error && (
-                    <div className="text-center py-4">
-                        <p className="text-red-500">{error}</p>
+                {departmentsLoading ? (
+                    <div className="flex justify-center items-center py-12">
+                        <div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-500 border-t-transparent"></div>
                     </div>
-                )}
-
-                {selectedDept ? (
-                    loading ? (
-                        <div className="flex justify-center items-center py-12">
-                            <div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-500 border-t-transparent"></div>
-                        </div>
-                    ) : (
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                            {students.map(student => (
-                                <div key={student.id} className="bg-white rounded-lg shadow-sm border hover:shadow-md transition-shadow">
-                                    <div className="p-6">
-                                        <div className="flex justify-between items-start mb-4">
-                                            <div className="flex-1">
-                                                <h3 className="text-xl font-semibold text-gray-900">{student.holderName}</h3>
-                                                <p className="text-sm text-gray-500">Roll No: {student.studentInfo?.rollNumber}</p>
-                                            </div>
-                                            <div className="flex space-x-2">
-                                                <button
-                                                    onClick={() => handleEditStudent(student)}
-                                                    className="text-blue-600 hover:text-blue-800"
-                                                >
-                                                    <i className="bi bi-pencil-square text-xl"></i>
-                                                </button>
-                                                <button
-                                                    onClick={() => handleDeleteStudent(student.id)}
-                                                    className="text-red-600 hover:text-red-800"
-                                                >
-                                                    <i className="bi bi-trash text-xl"></i>
-                                                </button>
-                                            </div>
-                                        </div>
-
-                                        <div className="grid grid-cols-2 gap-4 mb-4">
-                                            <div className="bg-gray-50 p-3 rounded">
-                                                <h4 className="text-sm font-medium text-gray-700 mb-2">Academic Details</h4>
-                                                <div className="space-y-1">
-                                                    <p className="text-sm">
-                                                        <span className="font-medium">Semester:</span> {student.studentInfo?.semester}
-                                                    </p>
-                                                    <p className="text-sm">
-                                                        <span className="font-medium">Branch:</span> {student.studentInfo?.branch}
-                                                    </p>
-                                                    <p className="text-sm">
-                                                        <span className="font-medium">Section:</span> {student.studentInfo?.section}
-                                                    </p>
-                                                    <p className="text-sm">
-                                                        <span className="font-medium">CGPA:</span> {student.studentInfo?.academicDetails?.cgpa}
-                                                    </p>
-                                                </div>
-                                            </div>
-                                            <div className="bg-gray-50 p-3 rounded">
-                                                <h4 className="text-sm font-medium text-gray-700 mb-2">Contact Info</h4>
-                                                <div className="space-y-1">
-                                                    <p className="text-sm">
-                                                        <span className="font-medium">Email:</span> {student.email}
-                                                    </p>
-                                                    <p className="text-sm">
-                                                        <span className="font-medium">Phone:</span> {student.phone}
-                                                    </p>
-                                                    <p className="text-sm">
-                                                        <span className="font-medium">Guardian:</span> {student.studentInfo?.guardianName}
-                                                    </p>
-                                                    <p className="text-sm">
-                                                        <span className="font-medium">Guardian Phone:</span> {student.studentInfo?.guardianPhone}
-                                                    </p>
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        <div className="bg-gray-50 p-3 rounded mb-4">
-                                            <h4 className="text-sm font-medium text-gray-700 mb-2">NFC & Status</h4>
-                                            <div className="flex flex-wrap items-center gap-2">
-                                                <span className={`px-2 py-1 text-xs rounded-full ${
-                                                    student.active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                                                }`}>
-                                                    {student.active ? 'Active' : 'Inactive'}
-                                                </span>
-                                                {student.biometricId && (
-                                                    <span className="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-800">
-                                                        Biometric Registered
-                                                    </span>
-                                                )}
-                                                {student.studentInfo?.nfcCard?.cardNumber && (
-                                                    <span className="px-2 py-1 text-xs rounded-full bg-purple-100 text-purple-800">
-                                                        NFC: {student.studentInfo.nfcCard.cardNumber}
-                                                    </span>
-                                                )}
-                                                <span className={`px-2 py-1 text-xs rounded-full ${
-                                                    getAttendanceStatusColor(student.studentInfo?.attendance?.status)
-                                                }`}>
-                                                    {student.studentInfo?.attendance?.status || 'Not Recorded'}
-                                                </span>
-                                            </div>
-                                            {(student.studentInfo?.attendance?.lastTapIn || student.studentInfo?.attendance?.lastTapOut) && (
-                                                <div className="mt-2 text-xs text-gray-500">
-                                                    {student.studentInfo.attendance.lastTapIn && (
-                                                        <span className="mr-3">
-                                                            Last In: {new Date(student.studentInfo.attendance.lastTapIn).toLocaleString()}
-                                                        </span>
-                                                    )}
-                                                    {student.studentInfo.attendance.lastTapOut && (
-                                                        <span>
-                                                            Last Out: {new Date(student.studentInfo.attendance.lastTapOut).toLocaleString()}
-                                                        </span>
-                                                    )}
-                                                </div>
-                                            )}
-                                        </div>
-
-                                        <div className="bg-gray-50 p-3 rounded mb-4">
-                                            <h4 className="text-sm font-medium text-gray-700 mb-2">Library & Fees</h4>
-                                            <div className="grid grid-cols-2 gap-4">
-                                                <p className="text-sm">
-                                                    <span className="font-medium">Library ID:</span> {student.studentInfo?.library?.membershipId}
-                                                </p>
-                                                <p className="text-sm">
-                                                    <span className="font-medium">Fines Pending:</span> ₹{student.studentInfo?.library?.finesPending}
-                                                </p>
-                                                <p className="text-sm">
-                                                    <span className="font-medium">Total Fees:</span> ₹{student.studentInfo?.fees?.totalAmount}
-                                                </p>
-                                                <p className="text-sm">
-                                                    <span className="font-medium">Pending Fees:</span> ₹{student.studentInfo?.fees?.pendingAmount}
-                                                </p>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    )
-                ) : (
+                ) : !selectedDept ? (
                     <div className="text-center py-12">
-                        <i className="bi bi-people text-4xl text-gray-400"></i>
-                        <h3 className="mt-4 text-lg font-medium text-gray-900">No Students Found</h3>
+                        <i className="bi bi-diagram-3 text-4xl text-gray-400"></i>
+                        <h3 className="mt-4 text-lg font-medium text-gray-900">No Department Selected</h3>
                         <p className="mt-2 text-sm text-gray-500">
-                            {selectedDept ? 'No students in this department yet.' : 'Please select a department to view students.'}
+                            Please select a department to view and manage students.
                         </p>
                     </div>
+                ) : (
+                    <>
+                        <StudentAnalytics students={students} />
+                        <div className="mt-6">
+                            {loading ? (
+                                <div className="flex justify-center items-center py-12">
+                                    <div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-500 border-t-transparent"></div>
+                                </div>
+                            ) : (
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                    {students.map(student => (
+                                        <div key={student.id} className="bg-white rounded-lg shadow-sm border hover:shadow-md transition-shadow">
+                                            <div className="p-4">
+                                                <div className="flex justify-between items-start">
+                                                    <div>
+                                                        <h3 className="font-semibold text-gray-900">{student.holderName}</h3>
+                                                        <p className="text-sm text-gray-500">{student.studentInfo?.rollNumber}</p>
+                                                    </div>
+                                                    <div className="flex space-x-2">
+                                                        <button
+                                                            onClick={() => handleEditStudent(student)}
+                                                            className="text-blue-600 hover:text-blue-800"
+                                                        >
+                                                            <i className="bi bi-pencil"></i>
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handleDeleteStudent(student.id)}
+                                                            className="text-red-600 hover:text-red-800"
+                                                        >
+                                                            <i className="bi bi-trash"></i>
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                                <div className="mt-2 space-y-2">
+                                                    <div className="flex space-x-2">
+                                                        <span className={`px-2 py-1 text-xs rounded-full ${
+                                                            student.active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                                                        }`}>
+                                                            {student.active ? 'Active' : 'Inactive'}
+                                                        </span>
+                                                        <span className={`px-2 py-1 text-xs rounded-full ${
+                                                            getAttendanceStatusColor(student.studentInfo?.attendance?.status)
+                                                        }`}>
+                                                            {student.studentInfo?.attendance?.status || 'No Status'}
+                                                        </span>
+                                                    </div>
+                                                    {student.studentInfo?.nfcCard?.cardNumber && (
+                                                        <p className="text-sm text-gray-600">
+                                                            <span className="font-medium">NFC Card:</span> {student.studentInfo.nfcCard.cardNumber}
+                                                        </p>
+                                                    )}
+                                                    <p className="text-sm text-gray-600">
+                                                        <span className="font-medium">Semester:</span> {student.studentInfo?.semester || 'N/A'}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    </>
                 )}
             </div>
 

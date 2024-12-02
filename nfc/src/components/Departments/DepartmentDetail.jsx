@@ -1,10 +1,13 @@
 import React, { useState, useEffect } from 'react';
+import MemberEditModal from './MemberEditModal';
 
 function DepartmentDetail({ department, onClose, onEditMember, onDeleteMember, stats }) {
     const [members, setMembers] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const [filterType, setFilterType] = useState('all');
+    const [showEditModal, setShowEditModal] = useState(false);
+    const [editingMember, setEditingMember] = useState(null);
 
     useEffect(() => {
         if (department) {
@@ -27,6 +30,19 @@ function DepartmentDetail({ department, onClose, onEditMember, onDeleteMember, s
         } finally {
             setLoading(false);
         }
+    };
+
+    const handleEditMember = (member) => {
+        setEditingMember(member);
+        setShowEditModal(true);
+    };
+
+    const handleSaveMember = (updatedMember) => {
+        setMembers(prevMembers => 
+            prevMembers.map(member => 
+                member.id === updatedMember.id ? updatedMember : member
+            )
+        );
     };
 
     const filteredMembers = members.filter(member => 
@@ -101,13 +117,13 @@ function DepartmentDetail({ department, onClose, onEditMember, onDeleteMember, s
                                 </div>
                                 <div className="flex space-x-2">
                                     <button
-                                        onClick={() => onEditMember(member)}
+                                        onClick={() => handleEditMember(member)}
                                         className="text-blue-600 hover:text-blue-800"
                                     >
                                         <i className="bi bi-pencil"></i>
                                     </button>
                                     <button
-                                        onClick={() => onDeleteMember(member.id)}
+                                        onClick={() => onDeleteMember(member._id)}
                                         className="text-red-600 hover:text-red-800"
                                     >
                                         <i className="bi bi-trash"></i>
@@ -131,6 +147,14 @@ function DepartmentDetail({ department, onClose, onEditMember, onDeleteMember, s
                         </div>
                     ))}
                 </div>
+            )}
+
+            {showEditModal && editingMember && (
+                <MemberEditModal
+                    member={editingMember}
+                    onClose={() => setShowEditModal(false)}
+                    onSave={handleSaveMember}
+                />
             )}
         </div>
     );

@@ -1432,31 +1432,51 @@ app.post('/api/cards', async (req, res) => {
 
 app.put('/api/cards/:id', async (req, res) => {
     try {
-        const card = await Card.findOneAndUpdate(
-            { id: req.params.id },
-            req.body,
-            { new: true }
-        );
+        // Remove _id and id from the update data
+        const updateData = { ...req.body };
+        delete updateData._id;
+        delete updateData.id;
+
+        // First find the card using the string ID
+        const card = await Card.findOne({ id: req.params.id });
+        
         if (!card) {
-            return res.status(404).json({ error: 'Card not found' });
+            return res.status(404).json({ message: 'Member not found' });
         }
-        broadcast({ type: 'cardUpdated', card });
-        res.json(card);
+
+        // Then update using the MongoDB _id
+        const updatedCard = await Card.findByIdAndUpdate(
+            card._id,
+            { $set: updateData },
+            { new: true, runValidators: true }
+        );
+        
+        res.json(updatedCard);
     } catch (error) {
-        res.status(500).json({ error: 'Failed to update card' });
+        console.error('Error updating card:', error);
+        res.status(500).json({ 
+            message: 'Failed to update member', 
+            error: error.message 
+        });
     }
 });
 
 app.delete('/api/cards/:id', async (req, res) => {
     try {
-        const card = await Card.findOneAndDelete({ id: req.params.id });
+        const card = await Card.findOne({ id: req.params.id });
+        
         if (!card) {
-            return res.status(404).json({ error: 'Card not found' });
+            return res.status(404).json({ message: 'Member not found' });
         }
-        broadcast({ type: 'cardDeleted', id: req.params.id });
-        res.json({ message: 'Card deleted' });
+
+        await Card.findByIdAndDelete(card._id);
+        res.json({ message: 'Member deleted successfully' });
     } catch (error) {
-        res.status(500).json({ error: 'Failed to delete card' });
+        console.error('Error deleting card:', error);
+        res.status(500).json({ 
+            message: 'Failed to delete member', 
+            error: error.message 
+        });
     }
 });
 
