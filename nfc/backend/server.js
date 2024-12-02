@@ -73,11 +73,171 @@ const CardSchema = new mongoose.Schema({
     type: { type: String, enum: ['student', 'faculty', 'staff', 'employee', 'visitor'], required: true },
     email: String,
     phone: String,
+    studentInfo: {
+        rollNumber: { type: String, unique: true, sparse: true },
+        semester: { type: Number, min: 1, max: 8 },
+        branch: String,
+        section: String,
+        batch: String,
+        admissionYear: Number,
+        guardianName: String,
+        guardianPhone: String,
+        bloodGroup: { 
+            type: String, 
+            enum: ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'] 
+        },
+        address: {
+            street: String,
+            city: String,
+            state: String,
+            pincode: String,
+            country: { type: String, default: 'India' }
+        },
+        academicDetails: {
+            cgpa: { type: Number, min: 0, max: 10 },
+            attendance: { type: Number, default: 0 },
+            subjects: [{
+                name: String,
+                code: String,
+                credits: Number
+            }]
+        },
+        nfcCard: {
+            cardNumber: { type: String, unique: true, sparse: true },
+            issueDate: { type: Date },
+            lastReplaced: { type: Date },
+            status: { 
+                type: String, 
+                enum: ['active', 'lost', 'damaged', 'replaced', 'expired'],
+                default: 'active'
+            }
+        },
+        attendance: {
+            lastTapIn: Date,
+            lastTapOut: Date,
+            totalPresent: { type: Number, default: 0 },
+            totalAbsent: { type: Number, default: 0 },
+            totalLate: { type: Number, default: 0 },
+            status: { 
+                type: String, 
+                enum: ['present', 'absent', 'late'], 
+                default: 'absent' 
+            },
+            history: [{
+                date: Date,
+                status: String,
+                inTime: Date,
+                outTime: Date,
+                duration: Number, // in minutes
+                location: String
+            }]
+        },
+        library: {
+            membershipId: String,
+            booksIssued: [{ 
+                bookId: { type: mongoose.Schema.Types.ObjectId, ref: 'Book' },
+                issuedDate: Date,
+                dueDate: Date,
+                returnDate: Date,
+                fineAmount: Number
+            }],
+            finesPending: { type: Number, default: 0 }
+        },
+        fees: {
+            totalAmount: Number,
+            paidAmount: Number,
+            pendingAmount: Number,
+            lastPaymentDate: Date,
+            payments: [{
+                amount: Number,
+                date: Date,
+                transactionId: String,
+                mode: { 
+                    type: String, 
+                    enum: ['cash', 'online', 'cheque'] 
+                },
+                status: { 
+                    type: String, 
+                    enum: ['pending', 'completed', 'failed'] 
+                }
+            }]
+        }
+    },
     validFrom: { type: Date, required: true },
     validUntil: { type: Date, required: true },
     active: { type: Boolean, default: true },
-    created: { type: Date, default: Date.now }
+    created: { type: Date, default: Date.now },
+    lastModified: { type: Date, default: Date.now }
 });
+
+// Add middleware to update lastModified
+CardSchema.pre('save', function(next) {
+    this.lastModified = new Date();
+    next();
+});
+
+// Add virtual for age calculation
+CardSchema.virtual('studentInfo.age').get(function() {
+    if (this.studentInfo?.admissionYear) {
+        return new Date().getFullYear() - this.studentInfo.admissionYear + 18; // Approximate age
+    }
+    return null;
+});
+
+// Add methods for attendance management
+CardSchema.methods.recordAttendance = async function(type, location) {
+    const now = new Date();
+    if (type === 'in') {
+        this.studentInfo.attendance.lastTapIn = now;
+        this.studentInfo.attendance.status = 'present';
+    } else if (type === 'out') {
+        this.studentInfo.attendance.lastTapOut = now;
+        
+        // Calculate duration
+        const duration = Math.round(
+            (now - this.studentInfo.attendance.lastTapIn) / (1000 * 60)
+        );
+
+        // Add to history
+        this.studentInfo.attendance.history.push({
+            date: now,
+            status: this.studentInfo.attendance.status,
+            inTime: this.studentInfo.attendance.lastTapIn,
+            outTime: now,
+            duration,
+            location
+        });
+    }
+    await this.save();
+};
+
+// Add method for fee payment
+CardSchema.methods.recordPayment = async function(amount, transactionId, mode) {
+    const payment = {
+        amount,
+        date: new Date(),
+        transactionId,
+        mode,
+        status: 'completed'
+    };
+    
+    this.studentInfo.fees.payments.push(payment);
+    this.studentInfo.fees.paidAmount += amount;
+    this.studentInfo.fees.pendingAmount = 
+        this.studentInfo.fees.totalAmount - this.studentInfo.fees.paidAmount;
+    this.studentInfo.fees.lastPaymentDate = new Date();
+    
+    await this.save();
+    return payment;
+};
+
+// Add indexes for better query performance
+CardSchema.index({ 'studentInfo.rollNumber': 1 });
+CardSchema.index({ 'studentInfo.nfcCard.cardNumber': 1 });
+CardSchema.index({ departmentId: 1, type: 1 });
+CardSchema.index({ 'studentInfo.attendance.lastTapIn': -1 });
+
+const Card = mongoose.model('Card', CardSchema);
 
 const AccessLogSchema = new mongoose.Schema({
     cardId: { type: String, required: true },
@@ -139,7 +299,6 @@ const Device = mongoose.model('Device', DeviceSchema);
 const Organization = mongoose.model('Organization', OrganizationSchema);
 const Department = mongoose.model('Department', DepartmentSchema);
 const BiometricData = mongoose.model('BiometricData', BiometricDataSchema);
-const Card = mongoose.model('Card', CardSchema);
 const AccessLog = mongoose.model('AccessLog', AccessLogSchema);
 const PendingRegistration = mongoose.model('PendingRegistration', PendingRegistrationSchema);
 const Book = mongoose.model('Book', BookSchema);

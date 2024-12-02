@@ -7,6 +7,7 @@ import Charts from '../Charts';
 import Departments from '../Departments';
 import Cards from '../Cards';
 import { DepartmentModal, CardModal } from '../Modals';
+import Students from '../Students';
 
 function Dashboard({ organizationId, onLogout }) {
     // State Management
@@ -50,6 +51,12 @@ function Dashboard({ organizationId, onLogout }) {
         validUntil: '',
         active: true
     });
+
+    // Add debug logs
+    useEffect(() => {
+        console.log('Active Menu:', activeMenu);
+        console.log('Selected Department:', selectedDept);
+    }, [activeMenu, selectedDept]);
 
     // Fetch initial data
     useEffect(() => {
@@ -174,6 +181,10 @@ function Dashboard({ organizationId, onLogout }) {
                                 organizationId={organizationId}
                                 onDeleteDepartment={handleDeleteDepartment}
                             />
+                        )}
+
+                        {activeMenu === 'students' && (
+                            <Students organizationId={organizationId} />
                         )}
 
                         {activeMenu === 'cards' && selectedDept && (

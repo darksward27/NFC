@@ -3,6 +3,7 @@ import React from 'react';
 const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: 'bi-grid' },
     { id: 'departments', label: 'Departments', icon: 'bi-diagram-3' },
+    { id: 'students', label: 'Students', icon: 'bi-person' },
     { id: 'cards', label: 'Cards', icon: 'bi-credit-card' },
     { id: 'reports', label: 'Reports', icon: 'bi-file-text' },
     { id: 'settings', label: 'Settings', icon: 'bi-gear' }
