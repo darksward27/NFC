@@ -8,7 +8,14 @@ import mongoose from 'mongoose';
 import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
-
+import multer from 'multer';
+import attendanceRoutes from './routes/attendance.js';
+import AccessLog from './models/AccessLog.js';
+import classRoutes from './routes/classes.js';
+import attendanceSettingsRoutes from './routes/attendanceSettings.js';
+import Faculty from './models/Faculty.js';  // Import the model instead of the schema file
+import facultyRoutes from './routes/faculty.js';
+const upload = multer({ storage: multer.memoryStorage() });
 dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
@@ -18,9 +25,17 @@ const app = express();
 const server = createServer(app);
 const wss = new WebSocketServer({ server });
 
-app.use(cors());
+app.use(cors({
+    origin: ['http://localhost:5173', 'http://localhost:3000'],
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
+    credentials: true
+}));
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
+app.use('/api', attendanceRoutes);
+app.use('/api', classRoutes);
+app.use('/api', attendanceSettingsRoutes);
+app.use('/api', facultyRoutes);
 
 mongoose.connect(process.env.MONGODB_URI)
     .then(() => console.log('Connected to MongoDB'))
@@ -82,9 +97,9 @@ const CardSchema = new mongoose.Schema({
         admissionYear: Number,
         guardianName: String,
         guardianPhone: String,
-        bloodGroup: { 
-            type: String, 
-            enum: ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'] 
+        bloodGroup: {
+            type: String,
+            enum: ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-']
         },
         address: {
             street: String,
@@ -106,8 +121,8 @@ const CardSchema = new mongoose.Schema({
             cardNumber: { type: String, unique: true, sparse: true },
             issueDate: { type: Date },
             lastReplaced: { type: Date },
-            status: { 
-                type: String, 
+            status: {
+                type: String,
                 enum: ['active', 'lost', 'damaged', 'replaced', 'expired'],
                 default: 'active'
             }
@@ -118,10 +133,10 @@ const CardSchema = new mongoose.Schema({
             totalPresent: { type: Number, default: 0 },
             totalAbsent: { type: Number, default: 0 },
             totalLate: { type: Number, default: 0 },
-            status: { 
-                type: String, 
-                enum: ['present', 'absent', 'late'], 
-                default: 'absent' 
+            status: {
+                type: String,
+                enum: ['present', 'absent', 'late'],
+                default: 'absent'
             },
             history: [{
                 date: Date,
@@ -134,7 +149,7 @@ const CardSchema = new mongoose.Schema({
         },
         library: {
             membershipId: String,
-            booksIssued: [{ 
+            booksIssued: [{
                 bookId: { type: mongoose.Schema.Types.ObjectId, ref: 'Book' },
                 issuedDate: Date,
                 dueDate: Date,
@@ -152,13 +167,13 @@ const CardSchema = new mongoose.Schema({
                 amount: Number,
                 date: Date,
                 transactionId: String,
-                mode: { 
-                    type: String, 
-                    enum: ['cash', 'online', 'cheque'] 
+                mode: {
+                    type: String,
+                    enum: ['cash', 'online', 'cheque']
                 },
-                status: { 
-                    type: String, 
-                    enum: ['pending', 'completed', 'failed'] 
+                status: {
+                    type: String,
+                    enum: ['pending', 'completed', 'failed']
                 }
             }]
         }
@@ -171,13 +186,13 @@ const CardSchema = new mongoose.Schema({
 });
 
 // Add middleware to update lastModified
-CardSchema.pre('save', function(next) {
+CardSchema.pre('save', function (next) {
     this.lastModified = new Date();
     next();
 });
 
 // Add virtual for age calculation
-CardSchema.virtual('studentInfo.age').get(function() {
+CardSchema.virtual('studentInfo.age').get(function () {
     if (this.studentInfo?.admissionYear) {
         return new Date().getFullYear() - this.studentInfo.admissionYear + 18; // Approximate age
     }
@@ -185,14 +200,14 @@ CardSchema.virtual('studentInfo.age').get(function() {
 });
 
 // Add methods for attendance management
-CardSchema.methods.recordAttendance = async function(type, location) {
+CardSchema.methods.recordAttendance = async function (type, location) {
     const now = new Date();
     if (type === 'in') {
         this.studentInfo.attendance.lastTapIn = now;
         this.studentInfo.attendance.status = 'present';
     } else if (type === 'out') {
         this.studentInfo.attendance.lastTapOut = now;
-        
+
         // Calculate duration
         const duration = Math.round(
             (now - this.studentInfo.attendance.lastTapIn) / (1000 * 60)
@@ -212,7 +227,7 @@ CardSchema.methods.recordAttendance = async function(type, location) {
 };
 
 // Add method for fee payment
-CardSchema.methods.recordPayment = async function(amount, transactionId, mode) {
+CardSchema.methods.recordPayment = async function (amount, transactionId, mode) {
     const payment = {
         amount,
         date: new Date(),
@@ -220,13 +235,13 @@ CardSchema.methods.recordPayment = async function(amount, transactionId, mode) {
         mode,
         status: 'completed'
     };
-    
+
     this.studentInfo.fees.payments.push(payment);
     this.studentInfo.fees.paidAmount += amount;
-    this.studentInfo.fees.pendingAmount = 
+    this.studentInfo.fees.pendingAmount =
         this.studentInfo.fees.totalAmount - this.studentInfo.fees.paidAmount;
     this.studentInfo.fees.lastPaymentDate = new Date();
-    
+
     await this.save();
     return payment;
 };
@@ -443,7 +458,7 @@ FacultySchema.index({ 'nfcCard.cardNumber': 1 });
 FacultySchema.index({ 'employmentDetails.status': 1 });
 
 // Auto-generate faculty ID
-FacultySchema.pre('save', async function(next) {
+FacultySchema.pre('save', async function (next) {
     if (!this.id) {
         const department = await mongoose.model('Department').findById(this.employmentDetails.department);
         const deptCode = department ? department.code : 'FAC';
@@ -456,30 +471,27 @@ FacultySchema.pre('save', async function(next) {
 });
 
 // Virtual for full name
-FacultySchema.virtual('fullName').get(function() {
+FacultySchema.virtual('fullName').get(function () {
     return `${this.personalInfo.firstName} ${this.personalInfo.lastName}`;
 });
 
 // Method to calculate total salary
-FacultySchema.methods.calculateTotalSalary = function() {
+FacultySchema.methods.calculateTotalSalary = function () {
     const { basic, allowances, deductions } = this.employmentDetails.salary;
     return (basic + allowances - deductions);
 };
-
-const Faculty = mongoose.model('Faculty', FacultySchema);
-
 
 const AccessLogSchema = new mongoose.Schema({
     cardId: { type: String, required: true },
     fingerprintId: { type: Number, required: true },
     fingerprintAccuracy: { type: Number },
-    deviceId: { type: String, required: true },
     location: { type: String, required: true },
     organizationId: { type: mongoose.Schema.Types.ObjectId, ref: 'Organization' },
     departmentId: { type: mongoose.Schema.Types.ObjectId, ref: 'Department' },
     holderName: String,
     timestamp: { type: Date, default: Date.now },
     authorized: { type: Boolean, default: false },
+    deviceId: { type: mongoose.Schema.Types.ObjectId, ref: 'Device',required: true },
     verificationMethod: { type: String, enum: ['card_only', 'card_and_fingerprint'], default: 'card_and_fingerprint' },
     ipAddress: String
 });
@@ -514,7 +526,30 @@ const BookLoanSchema = new mongoose.Schema({
     departmentId: { type: mongoose.Schema.Types.ObjectId, ref: 'Department' },
     organizationId: { type: mongoose.Schema.Types.ObjectId, ref: 'Organization' }
 });
-
+const attendanceSettingsSchema = new mongoose.Schema({
+    organizationId: { type: mongoose.Schema.Types.ObjectId, required: true },
+    workingHours: {
+        startTime: { type: String, default: '09:00' },
+        endTime: { type: String, default: '17:00' },
+        graceTime: { type: Number, default: 15 },
+        halfDayThreshold: { type: Number, default: 240 }
+    },
+    policies: {
+        lateMarkAfter: { type: Number, default: 15 },
+        absentMarkAfter: { type: Number, default: 240 },
+        minimumWorkHours: { type: Number, default: 8 },
+        allowFlexibleTiming: { type: Boolean, default: false },
+        requireGeolocation: { type: Boolean, default: true },
+        allowRemoteCheckin: { type: Boolean, default: false }
+    },
+    notifications: {
+        sendEmailAlerts: { type: Boolean, default: true },
+        sendSMSAlerts: { type: Boolean, default: false },
+        alertSupervisor: { type: Boolean, default: true },
+        dailyReport: { type: Boolean, default: true },
+        weeklyReport: { type: Boolean, default: true }
+    }
+});
 // Indexes
 DeviceSchema.index({ deviceId: 1 }, { unique: true });
 BiometricDataSchema.index({ fingerprintId: 1 }, { unique: true });
@@ -525,14 +560,40 @@ AccessLogSchema.index({ deviceId: 1, timestamp: -1 });
 PendingRegistrationSchema.index({ cardId: 1, fingerprintId: 1 }, { unique: true });
 
 // Models
+
 const Device = mongoose.model('Device', DeviceSchema);
 const Organization = mongoose.model('Organization', OrganizationSchema);
 const Department = mongoose.model('Department', DepartmentSchema);
 const BiometricData = mongoose.model('BiometricData', BiometricDataSchema);
-const AccessLog = mongoose.model('AccessLog', AccessLogSchema);
 const PendingRegistration = mongoose.model('PendingRegistration', PendingRegistrationSchema);
 const Book = mongoose.model('Book', BookSchema);
 const BookLoan = mongoose.model('BookLoan', BookLoanSchema);
+
+// Default settings object
+const defaultSettings = {
+    workingHours: {
+        startTime: '09:00',
+        endTime: '17:00',
+        graceTime: 15,
+        halfDayThreshold: 240
+    },
+    policies: {
+        lateMarkAfter: 15,
+        absentMarkAfter: 240,
+        minimumWorkHours: 8,
+        allowFlexibleTiming: false,
+        requireGeolocation: true,
+        allowRemoteCheckin: false
+    },
+    notifications: {
+        sendEmailAlerts: true,
+        sendSMSAlerts: false,
+        alertSupervisor: true,
+        dailyReport: true,
+        weeklyReport: true
+    }
+};
+
 // WebSocket Management
 const clients = new Set();
 const connectedDevices = new Map();
@@ -614,7 +675,7 @@ wss.on('connection', (ws) => {
     ws.on('message', async (message) => {
         try {
             const data = JSON.parse(message);
-
+    
             switch (data.type) {
                 case 'GET_ACCESS_STATS':
                     const stats = await AccessLog.aggregate([
@@ -622,34 +683,55 @@ wss.on('connection', (ws) => {
                             $group: {
                                 _id: "$deviceId",
                                 total: { $sum: 1 },
-                                authorized: { $sum: { $cond: ["$authorized", 1, 0] } }
+                                authorized: {
+                                    $sum: { $cond: ["$authorized", 1, 0] }
+                                }
                             }
                         }
                     ]);
-                    ws.send(JSON.stringify({ type: 'accessStats', stats }));
+                    
+                    ws.send(JSON.stringify({ 
+                        type: 'accessStats', 
+                        stats 
+                    }));
                     break;
-
+    
                 case 'TOGGLE_REGISTRATION_MODE':
+                    // Validate input
+                    if (!data.deviceId) {
+                        throw new Error('deviceId is required');
+                    }
+                    if (typeof data.enabled !== 'boolean') {
+                        throw new Error('enabled must be a boolean value');
+                    }
+    
                     const device = await Device.findOneAndUpdate(
                         { deviceId: data.deviceId },
                         { isRegistrationMode: data.enabled },
                         { new: true }
                     );
+    
+                    if (!device) {
+                        throw new Error('Device not found');
+                    }
+    
                     broadcast({
                         type: 'deviceUpdated',
                         device: device.toObject()
                     });
                     break;
+    
+                default:
+                    throw new Error(`Unsupported message type: ${data.type}`);
             }
         } catch (error) {
             console.error('Error processing message:', error);
             ws.send(JSON.stringify({
                 type: 'error',
-                message: 'Failed to process request'
+                message: error.message || 'Failed to process request'
             }));
         }
     });
-
     // Handle client disconnection
     ws.on('close', () => {
         clients.delete(ws);
@@ -843,10 +925,366 @@ const tcpServer = createNetServer((socket) => {
     });
 });
 
-// API Routes
+// Simple auth middleware (temporary)
+const auth = (req, res, next) => {
+    next(); // For development, just pass through
+};
 
-// Example API endpoints for Faculty
-app.get('/api/faculty', async (req, res) => {
+
+// Faculty Attendance Endpoints
+app.get('/api/faculty-attendance', async (req, res) => {
+    try {
+        const { departmentId, date } = req.query;
+
+        // First get all faculty members from the department
+        const faculty = await Faculty.find({ departmentId });
+
+        // Then get their attendance records for the specified date
+        const startOfDay = new Date(date);
+        startOfDay.setHours(0, 0, 0, 0);
+
+        const endOfDay = new Date(date);
+        endOfDay.setHours(23, 59, 59, 999);
+
+        const attendanceRecords = await AccessLog.find({
+            userId: { $in: faculty.map(f => f._id) },
+            timestamp: {
+                $gte: startOfDay,
+                $lte: endOfDay
+            }
+        });
+
+        // Combine faculty data with attendance records
+        const facultyWithAttendance = faculty.map(f => {
+            const attendance = attendanceRecords.find(
+                record => record.userId.toString() === f._id.toString()
+            );
+
+            return {
+                _id: f._id,
+                name: f.name,
+                employeeId: f.employeeId,
+                department: f.department,
+                status: attendance ? attendance.status : 'absent',
+                time: attendance ? attendance.timestamp : null
+            };
+        });
+
+        res.json(facultyWithAttendance);
+
+    } catch (error) {
+        console.error('Faculty attendance fetch error:', error);
+        res.status(500).json({ error: 'Failed to fetch faculty attendance' });
+    }
+});
+
+app.post('/api/faculty-attendance', async (req, res) => {
+    try {
+        const { facultyId, status, date } = req.body;
+
+        const accessLog = new AccessLog({
+            userId: facultyId,
+            status,
+            timestamp: new Date(date),
+            type: 'faculty'
+        });
+
+        await accessLog.save();
+        res.json({ message: 'Attendance marked successfully' });
+
+    } catch (error) {
+        console.error('Faculty attendance marking error:', error);
+        res.status(500).json({ error: 'Failed to mark attendance' });
+    }
+});
+
+// Student Attendance Endpoints
+app.get('/api/student-attendance', async (req, res) => {
+    try {
+        const { departmentId, classId, date } = req.query;
+
+        // Get all students from the specified class and department
+        const students = await Student.find({
+            departmentId,
+            classId
+        });
+
+        const startOfDay = new Date(date);
+        startOfDay.setHours(0, 0, 0, 0);
+
+        const endOfDay = new Date(date);
+        endOfDay.setHours(23, 59, 59, 999);
+
+        const attendanceRecords = await AccessLog.find({
+            userId: { $in: students.map(s => s._id) },
+            timestamp: {
+                $gte: startOfDay,
+                $lte: endOfDay
+            }
+        });
+
+        const studentsWithAttendance = students.map(s => {
+            const attendance = attendanceRecords.find(
+                record => record.userId.toString() === s._id.toString()
+            );
+
+            return {
+                _id: s._id,
+                name: s.name,
+                rollNumber: s.rollNumber,
+                status: attendance ? attendance.status : 'absent',
+                time: attendance ? attendance.timestamp : null
+            };
+        });
+
+        res.json(studentsWithAttendance);
+
+    } catch (error) {
+        console.error('Student attendance fetch error:', error);
+        res.status(500).json({ error: 'Failed to fetch student attendance' });
+    }
+});
+
+app.post('/api/student-attendance', async (req, res) => {
+    try {
+        const { studentId, status, date, classId, departmentId } = req.body;
+
+        const accessLog = new AccessLog({
+            userId: studentId,
+            status,
+            timestamp: new Date(date),
+            type: 'student',
+            classId,
+            departmentId
+        });
+
+        await accessLog.save();
+        res.json({ message: 'Attendance marked successfully' });
+
+    } catch (error) {
+        console.error('Student attendance marking error:', error);
+        res.status(500).json({ error: 'Failed to mark attendance' });
+    }
+});
+
+// Export endpoint
+app.get('/api/student-attendance/export', async (req, res) => {
+    try {
+        const { departmentId, classId, date } = req.query;
+
+        // Fetch attendance data
+        const students = await Student.find({ departmentId, classId });
+        const startOfDay = new Date(date);
+        const endOfDay = new Date(date);
+        endOfDay.setHours(23, 59, 59, 999);
+
+        const attendanceRecords = await AccessLog.find({
+            userId: { $in: students.map(s => s._id) },
+            timestamp: { $gte: startOfDay, $lte: endOfDay }
+        });
+
+        // Create CSV content
+        const csvRows = ['Name,Roll Number,Status,Time'];
+        students.forEach(student => {
+            const attendance = attendanceRecords.find(
+                record => record.userId.toString() === student._id.toString()
+            );
+
+            csvRows.push(`${student.name},${student.rollNumber},${attendance ? attendance.status : 'absent'},${attendance ? attendance.timestamp : '-'}`);
+        });
+
+        res.setHeader('Content-Type', 'text/csv');
+        res.setHeader('Content-Disposition', `attachment; filename=attendance-${date}.csv`);
+        res.send(csvRows.join('\n'));
+
+    } catch (error) {
+        console.error('Attendance export error:', error);
+        res.status(500).json({ error: 'Failed to export attendance' });
+    }
+});
+
+
+app.get('/api/attendance/settings', async (req, res) => {
+    try {
+        const settings = await AttendanceSettings.findOne({
+            organizationId: req.query.organizationId
+        });
+        res.json(settings || defaultSettings);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.post('/api/attendance/settings', async (req, res) => {
+    try {
+        const { organizationId } = req.body;
+        const settings = await AttendanceSettings.findOneAndUpdate(
+            { organizationId },
+            { ...req.body },
+            { new: true, upsert: true }
+        );
+        res.json(settings);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Attendance Analytics
+app.get('/api/attendance/analytics', async (req, res) => {
+    try {
+        const { timeRange, department, organizationId } = req.query;
+        let startDate = new Date();
+
+        // Calculate date range
+        switch (timeRange) {
+            case 'week':
+                startDate.setDate(startDate.getDate() - 7);
+                break;
+            case 'month':
+                startDate.setMonth(startDate.getMonth() - 1);
+                break;
+            case 'quarter':
+                startDate.setMonth(startDate.getMonth() - 3);
+                break;
+            default:
+                startDate.setDate(startDate.getDate() - 7);
+        }
+
+        // Build query
+        const query = {
+            timestamp: { $gte: startDate },
+            organizationId
+        };
+        if (department !== 'all') {
+            query.departmentId = department;
+        }
+
+        // Get attendance data
+        const accessLogs = await AccessLog.find(query)
+            .populate('cardId')
+            .populate('departmentId');
+
+        // Calculate real-time stats
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const todayLogs = accessLogs.filter(log => log.timestamp >= today);
+
+        const realTimeStats = {
+            present: todayLogs.filter(log => log.status === 'present').length,
+            late: todayLogs.filter(log => log.status === 'late').length,
+            absent: todayLogs.filter(log => log.status === 'absent').length,
+            onLeave: todayLogs.filter(log => log.status === 'leave').length
+        };
+
+        // Calculate trends
+        const trends = [];
+        let currentDate = new Date(startDate);
+        while (currentDate <= new Date()) {
+            const dayLogs = accessLogs.filter(log => {
+                const logDate = new Date(log.timestamp);
+                return logDate.toDateString() === currentDate.toDateString();
+            });
+
+            trends.push({
+                date: currentDate.toISOString().split('T')[0],
+                present: dayLogs.filter(log => log.status === 'present').length,
+                late: dayLogs.filter(log => log.status === 'late').length,
+                absent: dayLogs.filter(log => log.status === 'absent').length
+            });
+
+            currentDate.setDate(currentDate.getDate() + 1);
+        }
+
+        // Department comparison
+        const departments = await Department.find({ organizationId });
+        const departmentComparison = await Promise.all(
+            departments.map(async (dept) => {
+                const deptLogs = accessLogs.filter(log =>
+                    log.departmentId && log.departmentId._id.toString() === dept._id.toString()
+                );
+                const totalPresent = deptLogs.filter(log =>
+                    log.status === 'present' || log.status === 'late'
+                ).length;
+                const total = deptLogs.length || 1; // Avoid division by zero
+
+                return {
+                    department: dept.name,
+                    attendance: (totalPresent / total) * 100
+                };
+            })
+        );
+
+        // Attendance by time
+        const attendanceByTime = Array(24).fill(0).map((_, hour) => ({
+            time: `${hour.toString().padStart(2, '0')}:00`,
+            checkIns: accessLogs.filter(log => {
+                const logHour = new Date(log.timestamp).getHours();
+                return logHour === hour;
+            }).length
+        }));
+
+        res.json({
+            realTimeStats,
+            trends,
+            departmentComparison,
+            attendanceByTime
+        });
+
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Bulk Upload
+app.post('/api/attendance/bulk-upload', upload.single('file'), async (req, res) => {
+    try {
+        if (!req.file) {
+            throw new Error('No file uploaded');
+        }
+
+        const fileContent = req.file.buffer.toString();
+        const rows = fileContent.split('\n').slice(1); // Skip header row
+
+        const results = await Promise.all(rows.map(async (row) => {
+            const [id, name, date, status, time] = row.split(',');
+
+            if (!id || !date || !status) {
+                return { error: 'Invalid row data', row };
+            }
+
+            try {
+                const timestamp = new Date(`${date} ${time || '00:00'}`);
+
+                const accessLog = new AccessLog({
+                    cardId: id.trim(),
+                    status: status.trim().toLowerCase(),
+                    timestamp,
+                    type: 'bulk',
+                    departmentId: req.body.departmentId
+                });
+
+                await accessLog.save();
+                return { success: true, id };
+            } catch (error) {
+                return { error: error.message, row };
+            }
+        }));
+
+        const successful = results.filter(r => r.success).length;
+        const failed = results.filter(r => r.error).length;
+
+        res.json({
+            message: `Processed ${results.length} records. Success: ${successful}, Failed: ${failed}`,
+            details: results
+        });
+
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Faculty Routes
+app.get('/api/faculty', auth, async (req, res) => {
     try {
         const { departmentId, status, search } = req.query;
         let query = {};
@@ -861,8 +1299,7 @@ app.get('/api/faculty', async (req, res) => {
             query.$or = [
                 { 'personalInfo.firstName': { $regex: search, $options: 'i' } },
                 { 'personalInfo.lastName': { $regex: search, $options: 'i' } },
-                { 'personalInfo.email': { $regex: search, $options: 'i' } },
-                { 'employmentDetails.employeeId': { $regex: search, $options: 'i' } }
+                { 'personalInfo.email': { $regex: search, $options: 'i' } }
             ];
         }
 
@@ -876,17 +1313,104 @@ app.get('/api/faculty', async (req, res) => {
     }
 });
 
-// ... add other faculty-related endpoints ...
+app.post('/api/faculty', auth, async (req, res) => {
+    try {
+        // Log the incoming request body for debugging
+        console.log('Received faculty data:', req.body);
+
+        // Validate required fields
+        if (!req.body.id) {
+            return res.status(400).json({ message: 'Faculty ID is required' });
+        }
+
+        if (!req.body.employmentDetails?.department) {
+            return res.status(400).json({ message: 'Department is required' });
+        }
+
+        if (!req.body.employmentDetails?.organizationId) {
+            return res.status(400).json({ message: 'Organization ID is required' });
+        }
+
+        // Create new faculty member
+        const faculty = new Faculty({
+            id: req.body.id,
+            personalInfo: {
+                firstName: req.body.personalInfo.firstName,
+                lastName: req.body.personalInfo.lastName,
+                email: req.body.personalInfo.email,
+                phone: req.body.personalInfo.phone,
+                dateOfBirth: req.body.personalInfo.dateOfBirth,
+                gender: req.body.personalInfo.gender,
+            },
+            employmentDetails: {
+                employeeId: req.body.employmentDetails.employeeId,
+                designation: req.body.employmentDetails.designation,
+                department: req.body.employmentDetails.department,
+                organizationId: req.body.employmentDetails.organizationId,
+                joiningDate: req.body.employmentDetails.joiningDate,
+                employmentType: req.body.employmentDetails.employmentType,
+                status: 'active'
+            }
+        });
+
+        // Save to database
+        await faculty.save();
+
+        // Return the created faculty member
+        res.status(201).json(faculty);
+    } catch (error) {
+        console.error('Error creating faculty:', error);
+
+        // Send more detailed error message
+        if (error.name === 'ValidationError') {
+            return res.status(400).json({
+                message: 'Validation Error',
+                details: Object.values(error.errors).map(err => err.message)
+            });
+        }
+
+        res.status(400).json({
+            message: error.message || 'Failed to create faculty member',
+            error: process.env.NODE_ENV === 'development' ? error : undefined
+        });
+    }
+});
+
+// Add this with your other faculty routes
+app.delete('/api/faculty/:id', auth, async (req, res) => {
+    try {
+        const faculty = await Faculty.findById(req.params.id);
+
+        if (!faculty) {
+            return res.status(404).json({ message: 'Faculty member not found' });
+        }
+
+        await Faculty.findByIdAndDelete(req.params.id);
+
+        res.json({
+            message: 'Faculty member deleted successfully',
+            id: req.params.id
+        });
+    } catch (error) {
+        console.error('Error deleting faculty:', error);
+        res.status(500).json({
+            message: 'Failed to delete faculty member',
+            error: error.message
+        });
+    }
+});
+
+// ... other faculty routes ...
 
 // Dashboard Stats Endpoint
 app.get('/api/dashboard/stats', async (req, res) => {
     try {
         const { organizationId } = req.query;
-        
+
         // Get total students
-        const totalStudents = await Card.countDocuments({ 
-            organizationId, 
-            type: 'student' 
+        const totalStudents = await Card.countDocuments({
+            organizationId,
+            type: 'student'
         });
 
         // Get new students this month
@@ -1001,7 +1525,7 @@ app.get('/api/book-loans', async (req, res) => {
 app.post('/api/book-loans/checkout', async (req, res) => {
     try {
         const { bookId, cardId, dueDate } = req.body;
-        
+
         // Check if book exists and is available
         const book = await Book.findOne({ id: bookId });
         if (!book) {
@@ -1021,7 +1545,7 @@ app.post('/api/book-loans/checkout', async (req, res) => {
 
         // Update book status
         book.status = 'borrowed';
-        
+
         await Promise.all([
             loan.save(),
             book.save()
@@ -1703,7 +2227,7 @@ app.put('/api/cards/:id', async (req, res) => {
 
         // First find the card using the string ID
         const card = await Card.findOne({ id: req.params.id });
-        
+
         if (!card) {
             return res.status(404).json({ message: 'Member not found' });
         }
@@ -1714,13 +2238,13 @@ app.put('/api/cards/:id', async (req, res) => {
             { $set: updateData },
             { new: true, runValidators: true }
         );
-        
+
         res.json(updatedCard);
     } catch (error) {
         console.error('Error updating card:', error);
-        res.status(500).json({ 
-            message: 'Failed to update member', 
-            error: error.message 
+        res.status(500).json({
+            message: 'Failed to update member',
+            error: error.message
         });
     }
 });
@@ -1728,7 +2252,7 @@ app.put('/api/cards/:id', async (req, res) => {
 app.delete('/api/cards/:id', async (req, res) => {
     try {
         const card = await Card.findOne({ id: req.params.id });
-        
+
         if (!card) {
             return res.status(404).json({ message: 'Member not found' });
         }
@@ -1737,13 +2261,12 @@ app.delete('/api/cards/:id', async (req, res) => {
         res.json({ message: 'Member deleted successfully' });
     } catch (error) {
         console.error('Error deleting card:', error);
-        res.status(500).json({ 
-            message: 'Failed to delete member', 
-            error: error.message 
+        res.status(500).json({
+            message: 'Failed to delete member',
+            error: error.message
         });
     }
 });
-
 // Access logs endpoints
 app.get('/api/access-logs', async (req, res) => {
     try {
@@ -1787,17 +2310,20 @@ app.get('/api/access-stats', async (req, res) => {
                 }
             },
             {
-                $unwind: '$department'
+                $unwind: {
+                    path: '$department',
+                    preserveNullAndEmptyArrays: true
+                }
             },
             {
                 $group: {
                     _id: '$department.name',
                     total: { $sum: 1 },
                     authorized: {
-                        $sum: { $cond: ['$authorized', 1, 0] }
+                        $sum: { $cond: [{ $eq: ['$authorized', true] }, 1, 0] }
                     },
                     unauthorized: {
-                        $sum: { $cond: ['$authorized', 0, 1] }
+                        $sum: { $cond: [{ $eq: ['$authorized', false] }, 1, 0] }
                     }
                 }
             }
@@ -1885,6 +2411,7 @@ export default {
         BiometricData,
         Card,
         AccessLog,
-        PendingRegistration
+        PendingRegistration,
+        Faculty  // This will now use the imported model
     }
 };

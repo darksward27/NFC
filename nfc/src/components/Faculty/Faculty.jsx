@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import FacultyAnalytics from './FacultyAnalytics';
 import FacultyModal from './FacultyModal';
+import { FaEdit, FaTrash } from 'react-icons/fa';
 
 function Faculty({ organizationId }) {
     const [departments, setDepartments] = useState([]);
@@ -24,30 +25,41 @@ function Faculty({ organizationId }) {
                 street: '',
                 city: '',
                 state: '',
-                pincode: '',
-                country: 'India'
+                zipCode: '',
+                country: ''
             }
         },
-        employmentDetails: {
-            employeeId: '',
-            designation: '',
-            department: '',
-            organizationId: organizationId,
-            joiningDate: new Date().toISOString().split('T')[0],
-            status: 'active',
-            employmentType: 'full-time'
-        },
         academicInfo: {
-            qualification: [],
+            qualification: [{
+                degree: '',
+                field: '',
+                institution: '',
+                year: new Date().getFullYear()
+            }],
             specialization: [],
             experience: {
                 teaching: 0,
                 industry: 0,
                 research: 0
             },
-            subjects: []
+            publications: []
+        },
+        employmentDetails: {
+            employeeId: '',
+            designation: '',
+            joiningDate: new Date().toISOString().split('T')[0],
+            status: 'active',
+            salary: {
+                basic: 0,
+                allowances: 0,
+                deductions: 0
+            },
+            contracts: []
         },
         nfcCard: {
+            cardNumber: '',
+            issueDate: new Date().toISOString().split('T')[0],
+            expiryDate: '',
             status: 'active'
         }
     });
@@ -76,99 +88,136 @@ function Faculty({ organizationId }) {
             setDepartmentsLoading(false);
         }
     };
-
-    const fetchFaculty = async () => {
+// Update the fetchFaculty function
+const fetchFaculty = async () => {
+    if (!selectedDept) return;
+    
+    try {
         setLoading(true);
-        try {
-            const response = await fetch(`http://localhost:3000/api/faculty?departmentId=${selectedDept._id}`);
-            if (!response.ok) throw new Error('Failed to fetch faculty');
-            const data = await response.json();
-            setFaculty(data);
-        } catch (error) {
-            console.error('Error:', error);
-            setError('Failed to load faculty');
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const handleSubmit = async (formData) => {
-        try {
-            setLoading(true);
-            const url = editingFaculty 
-                ? `http://localhost:5000/api/faculty/${editingFaculty._id}`
-                : 'http://localhost:5000/api/faculty';
-
-            const response = await fetch(url, {
-                method: editingFaculty ? 'PUT' : 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`
-                },
-                body: JSON.stringify({
-                    ...formData,
-                    organizationId,
-                    departmentId: selectedDept?._id
-                }),
-            });
-
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.message || 'Failed to save faculty');
+        const response = await fetch(`/api/faculty/department/${selectedDept._id}`, {
+            headers: {
+                'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                'Content-Type': 'application/json'
             }
+        });
+        
+        if (!response.ok) throw new Error('Failed to fetch faculty');
+        const data = await response.json();
+        setFaculty(data);
+    } catch (error) {
+        console.error('Error:', error);
+        setError('Failed to load faculty');
+    } finally {
+        setLoading(false);
+    }
+};
 
-            const savedFaculty = await response.json();
-
-            // Update the faculty list
-            setFaculty(prev => {
-                if (editingFaculty) {
-                    return prev.map(f => f._id === savedFaculty._id ? savedFaculty : f);
-                }
-                return [...prev, savedFaculty];
-            });
-
-            // Reset form and close modal
-            setShowFacultyModal(false);
-            setEditingFaculty(null);
-            setFacultyFormData({
-                personalInfo: {
-                    firstName: '',
-                    lastName: '',
-                    email: '',
-                    phone: '',
-                    dateOfBirth: '',
-                    gender: 'male',
-                    address: {
-                        street: '',
-                        city: '',
-                        state: '',
-                        zipCode: '',
-                        country: ''
-                    }
-                },
-                academicInfo: {
-                    qualification: [],
-                    specialization: [],
-                    experience: {
-                        teaching: 0,
-                        industry: 0,
-                        research: 0
-                    }
-                },
+// Update the handleSubmit function
+const handleSubmit = async (formData) => {
+    try {
+        const response = await fetch('/api/faculty', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                ...formData,
                 employmentDetails: {
-                    employeeId: '',
-                    designation: '',
-                    joiningDate: '',
-                    status: 'active'
+                    ...formData.employmentDetails,
+                    department: selectedDept._id,
+                    organizationId: selectedDept.organizationId
                 }
-            });
+            })
+        });
 
-        } catch (error) {
-            setError(error.message || 'Failed to save faculty member');
-            console.error('Error saving faculty:', error);
-        } finally {
-            setLoading(false);
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.message || 'Failed to create faculty');
         }
+
+        const data = await response.json();
+        await fetchFaculty(); // Refresh the faculty list
+        return data;
+    } catch (error) {
+        console.error('Error saving faculty:', error);
+        throw error;
+    }
+};
+
+// Update the handleDelete function
+const handleDelete = async (facultyId) => {
+    try {
+        const response = await fetch(`/api/faculty/${facultyId}`, {
+            method: 'DELETE',
+            headers: {
+                'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                'Content-Type': 'application/json'
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error('Failed to delete faculty member');
+        }
+
+        await fetchFaculty(); // Refresh the faculty list
+    } catch (error) {
+        setError(error.message);
+        console.error('Error deleting faculty:', error);
+    }
+};
+
+    const resetFormData = () => {
+        setFacultyFormData({
+            personalInfo: {
+                firstName: '',
+                lastName: '',
+                email: '',
+                phone: '',
+                dateOfBirth: '',
+                gender: 'male',
+                address: {
+                    street: '',
+                    city: '',
+                    state: '',
+                    zipCode: '',
+                    country: ''
+                }
+            },
+            academicInfo: {
+                qualification: [{
+                    degree: '',
+                    field: '',
+                    institution: '',
+                    year: new Date().getFullYear()
+                }],
+                specialization: [],
+                experience: {
+                    teaching: 0,
+                    industry: 0,
+                    research: 0
+                },
+                publications: []
+            },
+            employmentDetails: {
+                employeeId: '',
+                designation: '',
+                joiningDate: new Date().toISOString().split('T')[0],
+                status: 'active',
+                salary: {
+                    basic: 0,
+                    allowances: 0,
+                    deductions: 0
+                },
+                contracts: []
+            },
+            nfcCard: {
+                cardNumber: '',
+                issueDate: new Date().toISOString().split('T')[0],
+                expiryDate: '',
+                status: 'active'
+            }
+        });
     };
 
     useEffect(() => {
@@ -177,7 +226,7 @@ function Faculty({ organizationId }) {
                 try {
                     setLoading(true);
                     const response = await fetch(
-                        `http://localhost:5000/api/faculty?departmentId=${selectedDept._id}`,
+                        `http://localhost:3000/api/faculty?departmentId=${selectedDept._id}`,
                         {
                             headers: {
                                 'Authorization': `Bearer ${localStorage.getItem('token')}`
@@ -203,27 +252,75 @@ function Faculty({ organizationId }) {
         fetchFaculty();
     }, [selectedDept]);
 
-    const handleDelete = async (facultyId) => {
-        try {
-            const response = await fetch(
-                `http://localhost:5000/api/faculty/${facultyId}`,
-                {
-                    method: 'DELETE',
-                    headers: {
-                        'Authorization': `Bearer ${localStorage.getItem('token')}`
-                    }
-                }
-            );
 
-            if (!response.ok) {
-                throw new Error('Failed to delete faculty member');
-            }
-
-            setFaculty(prev => prev.filter(f => f._id !== facultyId));
-        } catch (error) {
-            setError(error.message);
-            console.error('Error deleting faculty:', error);
-        }
+    // Update the faculty card display
+    const renderFacultyCard = (faculty) => {
+        return (
+            <div key={faculty._id} className="bg-white p-4 rounded-lg shadow">
+                <div className="flex justify-between items-start mb-4">
+                    <div>
+                        <h3 className="text-lg font-semibold">
+                            {faculty.personalInfo.firstName} {faculty.personalInfo.lastName}
+                        </h3>
+                        <p className="text-gray-600">{faculty.employmentDetails.designation}</p>
+                    </div>
+                    <div className="flex gap-2">
+                        <button
+                            onClick={() => handleEdit(faculty)}
+                            className="text-blue-600 hover:text-blue-800"
+                        >
+                            <FaEdit />
+                        </button>
+                        <button
+                            onClick={() => handleDelete(faculty._id)}
+                            className="text-red-600 hover:text-red-800"
+                        >
+                            <FaTrash />
+                        </button>
+                    </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                    <div>
+                        <p className="text-sm text-gray-600">Email</p>
+                        <p className="text-sm">{faculty.personalInfo.email}</p>
+                    </div>
+                    <div>
+                        <p className="text-sm text-gray-600">Phone</p>
+                        <p className="text-sm">{faculty.personalInfo.phone}</p>
+                    </div>
+                    <div>
+                        <p className="text-sm text-gray-600">Department</p>
+                        <p className="text-sm">{faculty.employmentDetails.department?.name || 'N/A'}</p>
+                    </div>
+                    <div>
+                        <p className="text-sm text-gray-600">Experience</p>
+                        <p className="text-sm">
+                            {faculty.academicInfo?.experience ? 
+                                `${faculty.academicInfo.experience.teaching || 0} years teaching` : 
+                                'N/A'}
+                        </p>
+                    </div>
+                    <div>
+                        <p className="text-sm text-gray-600">Status</p>
+                        <span className={`px-2 py-1 text-xs rounded ${
+                            faculty.employmentDetails.status === 'active' 
+                                ? 'bg-green-100 text-green-800' 
+                                : 'bg-red-100 text-red-800'
+                        }`}>
+                            {faculty.employmentDetails.status}
+                        </span>
+                    </div>
+                    <div>
+                        <p className="text-sm text-gray-600">Joined</p>
+                        <p className="text-sm">
+                            {faculty.employmentDetails.joiningDate ? 
+                                new Date(faculty.employmentDetails.joiningDate).toLocaleDateString() : 
+                                'N/A'}
+                        </p>
+                    </div>
+                </div>
+            </div>
+        );
     };
 
     return (
@@ -271,65 +368,18 @@ function Faculty({ organizationId }) {
             </div>
 
             <div className="p-6">
+                {error && (
+                    <div className="mb-4 p-4 bg-red-50 border-l-4 border-red-500 text-red-700">
+                        <p>{error}</p>
+                    </div>
+                )}
+
                 {selectedDept ? (
                     <>
                         <FacultyAnalytics faculty={faculty} />
                         <div className="mt-6">
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                {faculty.map(member => (
-                                    <div key={member._id} className="bg-white rounded-lg shadow-sm border hover:shadow-md transition-shadow">
-                                        <div className="p-4">
-                                            <div className="flex justify-between items-start">
-                                                <div>
-                                                    <h3 className="font-semibold text-gray-900">
-                                                        {member.personalInfo.firstName} {member.personalInfo.lastName}
-                                                    </h3>
-                                                    <p className="text-sm text-gray-500">
-                                                        {member.employmentDetails.designation}
-                                                    </p>
-                                                </div>
-                                                <div className="flex space-x-2">
-                                                    <button
-                                                        onClick={() => {
-                                                            setEditingFaculty(member);
-                                                            setFacultyFormData(member);
-                                                            setShowFacultyModal(true);
-                                                        }}
-                                                        className="text-blue-600 hover:text-blue-800"
-                                                    >
-                                                        <i className="bi bi-pencil"></i>
-                                                    </button>
-                                                    <button
-                                                        onClick={() => handleDelete(member._id)}
-                                                        className="text-red-600 hover:text-red-800"
-                                                    >
-                                                        <i className="bi bi-trash"></i>
-                                                    </button>
-                                                </div>
-                                            </div>
-                                            <div className="mt-2 space-y-2">
-                                                <div className="flex space-x-2">
-                                                    <span className={`px-2 py-1 text-xs rounded-full ${
-                                                        member.employmentDetails.status === 'active' 
-                                                            ? 'bg-green-100 text-green-800'
-                                                            : 'bg-red-100 text-red-800'
-                                                    }`}>
-                                                        {member.employmentDetails.status}
-                                                    </span>
-                                                    <span className="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-800">
-                                                        {member.employmentDetails.employmentType}
-                                                    </span>
-                                                </div>
-                                                <p className="text-sm text-gray-600">
-                                                    <span className="font-medium">Email:</span> {member.personalInfo.email}
-                                                </p>
-                                                <p className="text-sm text-gray-600">
-                                                    <span className="font-medium">Employee ID:</span> {member.employmentDetails.employeeId}
-                                                </p>
-                                            </div>
-                                        </div>
-                                    </div>
-                                ))}
+                                {faculty.map(renderFacultyCard)}
                             </div>
                         </div>
                     </>
@@ -350,10 +400,12 @@ function Faculty({ organizationId }) {
                     onClose={() => {
                         setShowFacultyModal(false);
                         setEditingFaculty(null);
+                        resetFormData();
                     }}
                     onSave={handleSubmit}
                     formData={facultyFormData}
                     setFormData={setFacultyFormData}
+                    loading={loading}
                 />
             )}
         </div>

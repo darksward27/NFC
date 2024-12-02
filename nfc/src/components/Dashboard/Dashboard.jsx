@@ -9,6 +9,7 @@ import Cards from '../Cards';
 import { DepartmentModal, CardModal } from '../Modals';
 import Students from '../Students';
 import Faculty from '../Faculty';
+import AttendanceManagement from '../Attendance/AttendanceManagement';
 
 function Dashboard({ organizationId, onLogout }) {
     // State Management
@@ -190,6 +191,10 @@ function Dashboard({ organizationId, onLogout }) {
 
                         {activeMenu === 'faculty' && (
                             <Faculty organizationId={organizationId} />
+                        )}
+
+                        {activeMenu === 'attendance' && (
+                            <AttendanceManagement organizationId={organizationId} />
                         )}
 
                         {activeMenu === 'cards' && selectedDept && (

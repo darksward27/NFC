@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const FacultySchema = new mongoose.Schema({
     personalInfo: {
@@ -166,66 +166,6 @@ const FacultySchema = new mongoose.Schema({
     timestamps: true
 });
 
-// Indexes
-FacultySchema.index({ 'personalInfo.email': 1 });
-FacultySchema.index({ 'employmentDetails.employeeId': 1 });
-FacultySchema.index({ 'employmentDetails.department': 1 });
-FacultySchema.index({ 'nfcCard.cardNumber': 1 });
-FacultySchema.index({ 'employmentDetails.status': 1 });
-
-// Pre-save middleware
-FacultySchema.pre('save', async function(next) {
-    if (this.isModified('personalInfo.email')) {
-        this.personalInfo.email = this.personalInfo.email.toLowerCase();
-    }
-    
-    if (this.isModified('employmentDetails.salary')) {
-        const { basic, allowances, deductions } = this.employmentDetails.salary;
-        if (basic < 0 || allowances < 0 || deductions < 0) {
-            throw new Error('Salary components cannot be negative');
-        }
-    }
-
-    next();
-});
-
-// Virtual fields
-FacultySchema.virtual('fullName').get(function() {
-    return `${this.personalInfo.firstName} ${this.personalInfo.lastName}`;
-});
-
-FacultySchema.virtual('age').get(function() {
-    return Math.floor((new Date() - this.personalInfo.dateOfBirth) / (365.25 * 24 * 60 * 60 * 1000));
-});
-
-FacultySchema.virtual('totalExperience').get(function() {
-    const { teaching, industry, research } = this.academicInfo.experience;
-    return teaching + industry + research;
-});
-
-// Methods
-FacultySchema.methods.calculateTotalSalary = function() {
-    const { basic, allowances, deductions } = this.employmentDetails.salary;
-    return (basic + allowances - deductions);
-};
-
-FacultySchema.methods.isCardValid = function() {
-    if (!this.nfcCard || this.nfcCard.status !== 'active') {
-        return false;
-    }
-    const now = new Date();
-    return now >= this.nfcCard.issueDate && now <= this.nfcCard.expiryDate;
-};
-
-FacultySchema.methods.addAccessLog = function(accessPointId, status, reason = '') {
-    this.accessLogs.push({
-        accessPoint: accessPointId,
-        status,
-        reason
-    });
-    return this.save();
-};
-
 const Faculty = mongoose.model('Faculty', FacultySchema);
 
-module.exports = Faculty; 
+export default Faculty; 
