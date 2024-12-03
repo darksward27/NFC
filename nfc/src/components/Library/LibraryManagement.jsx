@@ -1,61 +1,39 @@
 import React, { useState } from 'react';
 import { Tab } from '@headlessui/react';
 import {
-    FaUserGraduate,
-    FaChalkboardTeacher,
-    FaUserTie,
+    FaBook,
+    FaExchangeAlt,
     FaChartBar,
-    FaClock,
-    FaCalendarAlt,
-    FaCog
 } from 'react-icons/fa';
 
-import StudentAttendance from './StudentAttendance';
-import FacultyAttendance from './FacultyAttendance';
-import StaffAttendance from './StaffAttendance';
-import AttendanceAnalytics from './Analytics/AttendanceAnalytics';
-import RealTimeTracking from './RealTime/RealTimeTracking';
-import HolidayCalendar from './HolidayCalendar/HolidayCalendar';
-import AttendanceSettings from './Settings/AttendanceSettings';
-import BulkAttendanceUpload from './BulkAttendanceUpload';
+import BookList from './Books/BookList';
+import LoanList from './Loans/LoanList';
+import LibraryAnalytics from './Analytics/LibraryAnalytics';
+import AddBook from './Books/AddBook';
 
 function classNames(...classes) {
     return classes.filter(Boolean).join(' ');
 }
 
-const AttendanceManagement = () => {
+const LibraryManagement = () => {
     const [selectedTab, setSelectedTab] = useState(0);
-    const [showBulkUpload, setShowBulkUpload] = useState(false);
-    const [showSettings, setShowSettings] = useState(false);
+    const [showAddBook, setShowAddBook] = useState(false);
 
     const tabs = [
-        { name: 'Student Attendance', icon: FaUserGraduate, component: StudentAttendance },
-        { name: 'Faculty Attendance', icon: FaChalkboardTeacher, component: FacultyAttendance },
-        { name: 'Staff Attendance', icon: FaUserTie, component: StaffAttendance },
-        { name: 'Analytics', icon: FaChartBar, component: AttendanceAnalytics },
-        { name: 'Real-time Tracking', icon: FaClock, component: RealTimeTracking },
-        { name: 'Holiday Calendar', icon: FaCalendarAlt, component: HolidayCalendar },
-        { 
-            name: 'Settings', 
-            icon: FaCog, 
-            component: () => (
-                <AttendanceSettings 
-                    isOpen={true} 
-                    onClose={() => setSelectedTab(0)} 
-                />
-            )
-        }
+        { name: 'Books', icon: FaBook, component: BookList },
+        { name: 'Loans', icon: FaExchangeAlt, component: LoanList },
+        { name: 'Analytics', icon: FaChartBar, component: LibraryAnalytics },
     ];
 
     return (
         <div className="p-6">
             <div className="flex justify-between items-center mb-6">
-                <h1 className="text-2xl font-bold text-gray-800">Attendance Management</h1>
+                <h1 className="text-2xl font-bold text-gray-800">Library Management</h1>
                 <button
-                    onClick={() => setShowBulkUpload(true)}
+                    onClick={() => setShowAddBook(true)}
                     className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
                 >
-                    Bulk Upload
+                    Add New Book
                 </button>
             </div>
 
@@ -91,11 +69,11 @@ const AttendanceManagement = () => {
                 </Tab.Panels>
             </Tab.Group>
 
-            {/* Bulk Upload Modal */}
-            {showBulkUpload && (
+            {/* Add Book Modal */}
+            {showAddBook && (
                 <div className="fixed inset-0 bg-black bg-opacity-50 z-50">
                     <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
-                        <BulkAttendanceUpload onClose={() => setShowBulkUpload(false)} />
+                        <AddBook onClose={() => setShowAddBook(false)} />
                     </div>
                 </div>
             )}
@@ -103,4 +81,4 @@ const AttendanceManagement = () => {
     );
 };
 
-export default AttendanceManagement; 
+export default LibraryManagement; 

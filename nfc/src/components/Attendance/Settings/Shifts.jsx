@@ -3,21 +3,26 @@ import { FaTrash, FaEdit } from 'react-icons/fa';
 import TimePicker from 'react-time-picker';
 
 const Shifts = ({ settings, organizationId, onUpdate }) => {
-    const [shifts, setShifts] = useState([]);
-    const [departments, setDepartments] = useState([]);
-    const [editingShift, setEditingShift] = useState(null);
-    const [showForm, setShowForm] = useState(false);
-    const [formData, setFormData] = useState({
+    const defaultShift = {
         name: '',
         startTime: '09:00',
         endTime: '17:00',
         graceTime: 15,
         departments: []
-    });
+    };
+
+    const [shifts, setShifts] = useState([]);
+    const [departments, setDepartments] = useState([]);
+    const [editingShift, setEditingShift] = useState(null);
+    const [showForm, setShowForm] = useState(false);
+    const [formData, setFormData] = useState({...defaultShift});
 
     useEffect(() => {
         if (settings) {
-            setShifts(settings);
+            setShifts(settings.map(shift => ({
+                ...defaultShift,
+                ...shift
+            })));
         }
         fetchDepartments();
     }, [settings]);
@@ -98,13 +103,7 @@ const Shifts = ({ settings, organizationId, onUpdate }) => {
     };
 
     const resetForm = () => {
-        setFormData({
-            name: '',
-            startTime: '09:00',
-            endTime: '17:00',
-            graceTime: 15,
-            departments: []
-        });
+        setFormData({...defaultShift});
         setEditingShift(null);
         setShowForm(false);
     };

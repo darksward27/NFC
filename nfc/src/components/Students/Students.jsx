@@ -323,7 +323,7 @@ function Students({ organizationId }) {
                                                 <div className="flex justify-between items-start">
                                                     <div>
                                                         <h3 className="font-semibold text-gray-900">{student.holderName}</h3>
-                                                        <p className="text-sm text-gray-500">{student.studentInfo?.rollNumber}</p>
+                                                        <p className="text-sm text-gray-500">{student.studentInfo?.rollNumber || 'No Roll Number'}</p>
                                                     </div>
                                                     <div className="flex space-x-2">
                                                         <button

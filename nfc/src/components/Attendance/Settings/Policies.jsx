@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 
 const Policies = ({ settings, onUpdate }) => {
-    const [formData, setFormData] = useState({
+    const defaultPolicies = {
         lateMarkAfter: 15,
         absentMarkAfter: 240,
         minimumWorkHours: 8,
@@ -23,11 +23,28 @@ const Policies = ({ settings, onUpdate }) => {
             compensatoryOff: true,
             holidayRate: 2.0
         }
-    });
+    };
+
+    const [formData, setFormData] = useState({...defaultPolicies});
 
     useEffect(() => {
         if (settings) {
-            setFormData(settings);
+            setFormData({
+                ...defaultPolicies,
+                ...settings,
+                overtimeSettings: {
+                    ...defaultPolicies.overtimeSettings,
+                    ...(settings.overtimeSettings || {})
+                },
+                leaveDeduction: {
+                    ...defaultPolicies.leaveDeduction,
+                    ...(settings.leaveDeduction || {})
+                },
+                holidayWork: {
+                    ...defaultPolicies.holidayWork,
+                    ...(settings.holidayWork || {})
+                }
+            });
         }
     }, [settings]);
 
@@ -128,7 +145,7 @@ const Policies = ({ settings, onUpdate }) => {
                         <label className="flex items-center mb-4">
                             <input
                                 type="checkbox"
-                                checked={formData.overtimeSettings.allowOvertime}
+                                checked={formData?.overtimeSettings?.allowOvertime || false}
                                 onChange={(e) => handleNestedChange('overtimeSettings', 'allowOvertime', e.target.checked)}
                                 className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                             />

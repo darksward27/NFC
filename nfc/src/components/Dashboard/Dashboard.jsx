@@ -10,6 +10,7 @@ import { DepartmentModal, CardModal } from '../Modals';
 import Students from '../Students';
 import Faculty from '../Faculty';
 import AttendanceManagement from '../Attendance/AttendanceManagement';
+import LibraryManagement from '../Library/LibraryManagement';
 
 function Dashboard({ organizationId, onLogout }) {
     // State Management
@@ -166,9 +167,27 @@ function Dashboard({ organizationId, onLogout }) {
                     <div className="p-6">
                         {activeMenu === 'dashboard' && (
                             <>
-                                <StatsCards stats={stats} />
-                                <AccessLogsTable accessLogs={accessLogs} formatDate={formatDate} />
-                                <Charts dailyData={dailyData} devicesData={devicesData} />
+                                <div className="mb-6">
+                                    <StatsCards stats={stats} />
+                                </div>
+                                
+                                <div className="bg-white rounded-lg shadow-sm mb-6">
+                                    <div className="p-4 border-b border-gray-100">
+                                        <div className="flex justify-between items-center">
+                                            <h2 className="text-lg font-semibold text-gray-800">Recent Access Logs</h2>
+                                            <button className="text-blue-500 hover:text-blue-600 text-sm">
+                                                View All
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div className="p-4 h-[300px] overflow-y-auto custom-scrollbar">
+                                        <AccessLogsTable accessLogs={accessLogs} formatDate={formatDate} />
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                                    <Charts dailyData={dailyData} devicesData={devicesData} />
+                                </div>
                             </>
                         )}
 
@@ -195,6 +214,10 @@ function Dashboard({ organizationId, onLogout }) {
 
                         {activeMenu === 'attendance' && (
                             <AttendanceManagement organizationId={organizationId} />
+                        )}
+
+                        {activeMenu === 'library' && (
+                            <LibraryManagement organizationId={organizationId} />
                         )}
 
                         {activeMenu === 'cards' && selectedDept && (
@@ -234,3 +257,27 @@ function Dashboard({ organizationId, onLogout }) {
 }
 
 export default Dashboard;
+
+const styles = `
+.custom-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(156, 163, 175, 0.5) transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+    width: 4px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+    background-color: rgba(156, 163, 175, 0.5);
+    border-radius: 2px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background-color: rgba(156, 163, 175, 0.7);
+}
+`;

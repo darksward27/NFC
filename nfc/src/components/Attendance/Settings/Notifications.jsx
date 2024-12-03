@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { FaTrash } from 'react-icons/fa';
 
 const Notifications = ({ settings, onUpdate }) => {
-    const [formData, setFormData] = useState({
+    const defaultNotifications = {
         sendEmailAlerts: true,
         sendSMSAlerts: false,
         alertSupervisor: true,
@@ -16,11 +16,20 @@ const Notifications = ({ settings, onUpdate }) => {
             consecutiveAbsences: true
         },
         reportRecipients: []
-    });
+    };
+
+    const [formData, setFormData] = useState({...defaultNotifications});
 
     useEffect(() => {
         if (settings) {
-            setFormData(settings);
+            setFormData({
+                ...defaultNotifications,
+                ...settings,
+                alertSettings: {
+                    ...defaultNotifications.alertSettings,
+                    ...(settings.alertSettings || {})
+                }
+            });
         }
     }, [settings]);
 

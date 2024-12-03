@@ -3,7 +3,7 @@ import TimePicker from 'react-time-picker';
 import 'react-time-picker/dist/TimePicker.css';
 
 const WorkingHours = ({ settings, onUpdate }) => {
-    const [formData, setFormData] = useState({
+    const defaultWorkingHours = {
         startTime: '09:00',
         endTime: '17:00',
         graceTime: 15,
@@ -18,11 +18,20 @@ const WorkingHours = ({ settings, onUpdate }) => {
             saturday: false
         },
         breaks: []
-    });
+    };
+
+    const [formData, setFormData] = useState({...defaultWorkingHours});
 
     useEffect(() => {
         if (settings) {
-            setFormData(settings);
+            setFormData({
+                ...defaultWorkingHours,
+                ...settings,
+                workingDays: {
+                    ...defaultWorkingHours.workingDays,
+                    ...(settings.workingDays || {})
+                }
+            });
         }
     }, [settings]);
 
@@ -84,7 +93,7 @@ const WorkingHours = ({ settings, onUpdate }) => {
                             <label className="block text-sm font-medium text-gray-700">Start Time</label>
                             <TimePicker
                                 onChange={(value) => handleChange('startTime', value)}
-                                value={formData.startTime}
+                                value={formData?.startTime || defaultWorkingHours.startTime}
                                 className="mt-1 block w-full"
                             />
                         </div>
@@ -92,7 +101,7 @@ const WorkingHours = ({ settings, onUpdate }) => {
                             <label className="block text-sm font-medium text-gray-700">End Time</label>
                             <TimePicker
                                 onChange={(value) => handleChange('endTime', value)}
-                                value={formData.endTime}
+                                value={formData?.endTime || defaultWorkingHours.endTime}
                                 className="mt-1 block w-full"
                             />
                         </div>
@@ -123,7 +132,7 @@ const WorkingHours = ({ settings, onUpdate }) => {
                 <div className="space-y-4">
                     <h3 className="text-lg font-semibold">Working Days</h3>
                     <div className="space-y-2">
-                        {Object.entries(formData.workingDays).map(([day, isWorking]) => (
+                        {Object.entries(formData?.workingDays || defaultWorkingHours.workingDays).map(([day, isWorking]) => (
                             <label key={day} className="flex items-center">
                                 <input
                                     type="checkbox"

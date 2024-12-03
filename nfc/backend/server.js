@@ -491,7 +491,7 @@ const AccessLogSchema = new mongoose.Schema({
     holderName: String,
     timestamp: { type: Date, default: Date.now },
     authorized: { type: Boolean, default: false },
-    deviceId: { type: mongoose.Schema.Types.ObjectId, ref: 'Device',required: true },
+    deviceId: { type: mongoose.Schema.Types.ObjectId, ref: 'Device', required: true },
     verificationMethod: { type: String, enum: ['card_only', 'card_and_fingerprint'], default: 'card_and_fingerprint' },
     ipAddress: String
 });
@@ -675,7 +675,7 @@ wss.on('connection', (ws) => {
     ws.on('message', async (message) => {
         try {
             const data = JSON.parse(message);
-    
+
             switch (data.type) {
                 case 'GET_ACCESS_STATS':
                     const stats = await AccessLog.aggregate([
@@ -689,13 +689,13 @@ wss.on('connection', (ws) => {
                             }
                         }
                     ]);
-                    
-                    ws.send(JSON.stringify({ 
-                        type: 'accessStats', 
-                        stats 
+
+                    ws.send(JSON.stringify({
+                        type: 'accessStats',
+                        stats
                     }));
                     break;
-    
+
                 case 'TOGGLE_REGISTRATION_MODE':
                     // Validate input
                     if (!data.deviceId) {
@@ -704,23 +704,23 @@ wss.on('connection', (ws) => {
                     if (typeof data.enabled !== 'boolean') {
                         throw new Error('enabled must be a boolean value');
                     }
-    
+
                     const device = await Device.findOneAndUpdate(
                         { deviceId: data.deviceId },
                         { isRegistrationMode: data.enabled },
                         { new: true }
                     );
-    
+
                     if (!device) {
                         throw new Error('Device not found');
                     }
-    
+
                     broadcast({
                         type: 'deviceUpdated',
                         device: device.toObject()
                     });
                     break;
-    
+
                 default:
                     throw new Error(`Unsupported message type: ${data.type}`);
             }

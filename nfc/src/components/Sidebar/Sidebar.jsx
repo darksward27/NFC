@@ -6,9 +6,11 @@ const menuItems = [
     { id: 'students', label: 'Students', icon: 'bi-person' },
     { id: 'faculty', label: 'Faculty', icon: 'bi-person-workspace' },
     { id: 'attendance', label: 'Attendance', icon: 'bi-calendar-check' },
+    { id: 'library', label: 'Library', icon: 'bi-book' },
     { id: 'cards', label: 'Cards', icon: 'bi-credit-card' },
     { id: 'reports', label: 'Reports', icon: 'bi-file-text' },
-    { id: 'settings', label: 'Settings', icon: 'bi-gear' }
+    { id: 'settings', label: 'Settings', icon: 'bi-gear' },
+
 ];
 
 function Sidebar({ activeMenu, setActiveMenu, showSidebar }) {
